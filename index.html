@@ -568,6 +568,7 @@ let saveTimeout = null;
 let ghToken = null;
 let ghGistId = null;
 let isSyncing = false;
+let lastModified = null;
 
 // ========== INIT ==========
 async function init() {
@@ -604,12 +605,13 @@ function getDefaults() {
 }
 
 function getAllData() {
-  return { version: 2, courses, rounds, lastModified: new Date().toISOString() };
+  return { version: 2, courses, rounds, lastModified: lastModified };
 }
 
 function applyData(data) {
   if (data.courses) courses = data.courses;
   if (data.rounds) rounds = data.rounds;
+  if (data.lastModified) lastModified = data.lastModified;
   sortRounds();
 }
 
@@ -628,6 +630,9 @@ function loadData() {
 }
 
 function saveData() {
+  // Stamp the modification time NOW (data has just changed)
+  lastModified = new Date().toISOString();
+
   // Save to localStorage (instant, per-device cache)
   try { localStorage.setItem('whs_alldata_v3', JSON.stringify(getAllData())); } catch(e) {}
 
