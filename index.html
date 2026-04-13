@@ -1458,8 +1458,9 @@ function closeConfirmModal() {
   confirmCallback = null;
 }
 function confirmModalYes() {
+  const cb = confirmCallback; // capture before closeConfirmModal nulls it
   closeConfirmModal();
-  if (confirmCallback) confirmCallback();
+  if (cb) cb();
 }
 
 // ========== ROUND ACTIONS ==========
