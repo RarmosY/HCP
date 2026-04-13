@@ -126,9 +126,15 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
 .badge-9h { background: #9b59b6; color: #fff; }
 .del-btn {
   background: none; border: none; color: var(--red);
-  cursor: pointer; font-size: 16px; padding: 4px 8px; opacity: 0.5;
+  cursor: pointer; font-size: 16px; padding: 4px 6px; opacity: 0.5;
 }
 .del-btn:hover { opacity: 1; }
+.edit-btn {
+  background: none; border: none; color: var(--blue);
+  cursor: pointer; font-size: 15px; padding: 4px 6px; opacity: 0.6;
+}
+.edit-btn:hover { opacity: 1; }
+.round-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
 
 .course-item {
   background: var(--surface); border: 1px solid var(--border);
@@ -233,12 +239,28 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
 }
 .sync-bar .sync-actions button:hover { background: var(--border); }
 
+.round-num-badge {
+  font-size: 12px; font-weight: 700; color: var(--text2);
+  min-width: 24px; text-align: right; flex-shrink: 0;
+}
+.rounds-separator {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text2); font-size: 11px; margin: 14px 0 10px;
+}
+.rounds-separator::before, .rounds-separator::after {
+  content: ''; flex: 1; border-top: 1px dashed var(--border);
+}
+.unofficial-hcp {
+  font-size: 14px; color: var(--text2); margin: -4px 0 6px;
+}
+
 @media (max-width: 600px) {
   .form-row { flex-direction: column; }
   .form-group { min-width: 100%; }
   .hcp-stats { gap: 16px; }
   .round-item { flex-wrap: wrap; }
   .sync-bar { flex-direction: column; gap: 8px; }
+  .tabs button { font-size: 11px; padding: 8px 4px; }
 }
 </style>
 </head>
@@ -263,6 +285,7 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
   <div class="hcp-card">
     <div class="label">Handicap Index</div>
     <div class="value" id="hcpIndex">N/A</div>
+    <div class="unofficial-hcp" id="unofficialHcp">(Unofficial: N/A)</div>
     <div class="detail" id="hcpDetail">Add official rounds to calculate</div>
     <div class="hcp-stats">
       <div class="stat"><div class="val" id="statRounds">0</div><div class="lbl">Official Rounds</div></div>
@@ -273,7 +296,8 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
 
   <div class="tabs">
     <button class="active" onclick="switchTab('add')">Add Round</button>
-    <button onclick="switchTab('rounds')">My Rounds</button>
+    <button onclick="switchTab('hcp-rounds')">HCP Rounds</button>
+    <button onclick="switchTab('all-rounds')">All Rounds</button>
     <button onclick="switchTab('courses')">Courses</button>
     <button onclick="switchTab('settings')">Settings</button>
   </div>
@@ -351,16 +375,27 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
     </div>
   </div>
 
-  <!-- Tab: Rounds -->
-  <div id="tab-rounds" class="tab-content">
+  <!-- Tab: HCP Rounds -->
+  <div id="tab-hcp-rounds" class="tab-content">
     <div style="display:flex;gap:16px;margin-bottom:10px;font-size:11px;color:var(--text2);align-items:center;flex-wrap:wrap;">
       <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--accent);display:inline-block;"></span> Counting towards HCP</span>
       <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--blue);display:inline-block;"></span> Official (not counting)</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--orange);display:inline-block;"></span> Practice / excluded</span>
-      <span>Use checkboxes to include/exclude rounds</span>
+      <span>Official rounds only — use checkboxes to include/exclude</span>
     </div>
-    <div id="roundsList"></div>
-    <div id="noRounds" class="info-box">No rounds recorded yet.</div>
+    <div id="hcpRoundsList"></div>
+    <div id="noHcpRounds" class="info-box">No official rounds recorded yet.</div>
+  </div>
+
+  <!-- Tab: All Rounds -->
+  <div id="tab-all-rounds" class="tab-content">
+    <div style="display:flex;gap:16px;margin-bottom:10px;font-size:11px;color:var(--text2);align-items:center;flex-wrap:wrap;">
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--accent);display:inline-block;"></span> Counting (unofficial HCP)</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--blue);display:inline-block;"></span> Official (not counting)</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:2px;background:var(--orange);display:inline-block;"></span> Practice</span>
+      <span>All rounds incl. practice — unofficial HCP shown at top</span>
+    </div>
+    <div id="allRoundsList"></div>
+    <div id="noAllRounds" class="info-box">No rounds recorded yet.</div>
   </div>
 
   <!-- Tab: Courses -->
@@ -477,6 +512,78 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
   </div>
 </div>
 
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:360px;">
+    <h3 id="confirmModalTitle" style="color:var(--red);margin-bottom:10px;">Confirm</h3>
+    <p id="confirmModalMsg" style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5;"></p>
+    <div class="btn-group" style="margin-top:0;">
+      <button class="btn btn-danger" id="confirmModalYes" onclick="confirmModalYes()">Yes, delete</button>
+      <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Round Modal -->
+<div class="modal-overlay" id="editRoundModal">
+  <div class="modal">
+    <h3>Edit Round</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="text" id="editRoundDate" placeholder="DD.MM.YYYY"/>
+      </div>
+      <div class="form-group">
+        <label>Holes</label>
+        <select id="editRoundHoles" onchange="onEditHolesChange()">
+          <option value="18">18 holes</option>
+          <option value="9">9 holes</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Course</label>
+        <select id="editRoundCourse" onchange="populateEditTees()">
+          <option value="">Select course...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tee</label>
+        <select id="editRoundTee">
+          <option value="">Select tee...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Gross Score (strokes)</label>
+        <input type="number" id="editRoundScore" min="30" max="200"/>
+      </div>
+      <div class="form-group">
+        <label>PCC Adjustment</label>
+        <select id="editRoundPCC">
+          <option value="0">0 (Normal)</option>
+          <option value="-1">-1</option>
+          <option value="1">+1</option>
+          <option value="2">+2</option>
+          <option value="3">+3</option>
+        </select>
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="editRoundOfficial"/>
+      <label for="editRoundOfficial">Official round (counts towards handicap)</label>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveEditedRound()">Save Changes</button>
+      <button class="btn btn-secondary" onclick="closeEditRoundModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ========== COURSE DATABASE ==========
 const DEFAULT_COURSES = [
@@ -569,6 +676,8 @@ let ghToken = null;
 let ghGistId = null;
 let isSyncing = false;
 let lastModified = null;
+let editingRoundId = null;
+let confirmCallback = null;
 
 // ========== INIT ==========
 async function init() {
@@ -576,7 +685,7 @@ async function init() {
   loadData();
   setDateToday();
   populateCourseSelect();
-  renderRounds();
+  renderRoundViews();
   renderCourses();
   calculateHandicap();
   setupDatePicker();
@@ -771,7 +880,7 @@ async function syncFromCloud() {
         applyData(cloudData);
         try { localStorage.setItem('whs_alldata_v3', JSON.stringify(getAllData())); } catch(e){}
         calculateHandicap();
-        renderRounds();
+        renderRoundViews();
         renderCourses();
         populateCourseSelect();
         updateSyncStatus('synced', 'Loaded latest from cloud — ' + new Date().toLocaleTimeString());
@@ -808,10 +917,11 @@ async function syncNow() {
 }
 
 function disconnectSync() {
-  if (!confirm('Disconnect cloud sync? Your local data will be kept.')) return;
-  ghToken = null; ghGistId = null;
-  saveSyncConfig();
-  updateSyncUI();
+  showConfirm('Disconnect Sync', 'Disconnect cloud sync? Your local data will be kept.', 'Disconnect', () => {
+    ghToken = null; ghGistId = null;
+    saveSyncConfig();
+    updateSyncUI();
+  });
 }
 
 function updateSyncStatus(state, text) {
@@ -840,7 +950,7 @@ function importAll(e) {
       if (!data.courses && !data.rounds) throw new Error('Invalid file format');
       applyData(data);
       calculateHandicap();
-      renderRounds(); renderCourses(); populateCourseSelect();
+      renderRoundViews(); renderCourses(); populateCourseSelect();
       saveData();
       alert('Data imported successfully!');
     } catch(err) { alert('Error: ' + err.message); }
@@ -850,13 +960,15 @@ function importAll(e) {
 }
 
 function resetEverything() {
-  if (!confirm('Reset everything to factory defaults? All your rounds and course edits will be lost.')) return;
-  if (!confirm('Are you absolutely sure?')) return;
-  const def = getDefaults();
-  courses = def.courses; rounds = def.rounds; sortRounds();
-  try { localStorage.removeItem('whs_alldata_v3'); } catch(e){}
-  saveData();
-  renderRounds(); renderCourses(); populateCourseSelect(); calculateHandicap();
+  showConfirm('Reset Everything', 'Reset to factory defaults? ALL your rounds and course edits will be permanently lost.', 'Yes, reset everything', () => {
+    showConfirm('Are You Sure?', 'This cannot be undone. All rounds and custom courses will be deleted.', 'Yes, I am sure', () => {
+      const def = getDefaults();
+      courses = def.courses; rounds = def.rounds; sortRounds();
+      try { localStorage.removeItem('whs_alldata_v3'); } catch(e){}
+      saveData();
+      renderRoundViews(); renderCourses(); populateCourseSelect(); calculateHandicap();
+    });
+  });
 }
 
 // ========== DATE PICKER ==========
@@ -971,7 +1083,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
-  const tabs = ['add', 'rounds', 'courses', 'settings'];
+  const tabs = ['add', 'hcp-rounds', 'all-rounds', 'courses', 'settings'];
   document.querySelectorAll('.tabs button')[tabs.indexOf(tab)].classList.add('active');
 }
 
@@ -991,6 +1103,21 @@ function onHolesChange() {
   document.getElementById('teeInfo').style.display = 'none';
 }
 
+function getDefaultTeeIndex(tees) {
+  if (!tees || tees.length === 0) return -1;
+  // 1. Prefer tee named "Yellow" (case-insensitive)
+  const yellow = tees.findIndex(t => t.name.toLowerCase() === 'yellow');
+  if (yellow >= 0) return yellow;
+  // 2. If all tee names are numeric, sort descending and pick second (or first if only one)
+  const allNumeric = tees.every(t => !isNaN(parseFloat(t.name)) && t.name.trim() !== '');
+  if (allNumeric) {
+    const sorted = tees.map((t, i) => ({ i, val: parseFloat(t.name) })).sort((a, b) => b.val - a.val);
+    return sorted.length >= 2 ? sorted[1].i : sorted[0].i;
+  }
+  // 3. Default to first tee
+  return 0;
+}
+
 function populateTees() {
   const courseId = document.getElementById('roundCourse').value;
   const sel = document.getElementById('roundTee');
@@ -1002,6 +1129,96 @@ function populateTees() {
   course.tees.forEach((t, i) => {
     sel.innerHTML += `<option value="${i}">${t.name} (${t.gender}) — CR ${t.cr} / Slope ${t.slope}</option>`;
   });
+  // Auto-select default tee
+  const defaultIdx = getDefaultTeeIndex(course.tees);
+  if (defaultIdx >= 0) { sel.value = defaultIdx; showTeeInfo(); }
+}
+
+// ========== EDIT ROUND MODAL ==========
+function openEditRoundModal(btn) {
+  const id = getRoundId(btn);
+  const r = rounds.find(x => x.id === id);
+  if (!r) return;
+  editingRoundId = id;
+  document.getElementById('editRoundDate').value = formatRoundDate(r.date);
+  document.getElementById('editRoundHoles').value = r.holes;
+  document.getElementById('editRoundScore').value = r.score;
+  document.getElementById('editRoundPCC').value = r.pcc;
+  document.getElementById('editRoundOfficial').checked = r.official;
+  populateEditCourseSelect(r.holes);
+  document.getElementById('editRoundCourse').value = r.courseId;
+  populateEditTees();
+  // Select the correct tee
+  const course = courses.find(c => c.id === r.courseId);
+  if (course) {
+    const teeIdx = course.tees.findIndex(t => t.name === r.teeName && t.gender === r.teeGender);
+    if (teeIdx >= 0) document.getElementById('editRoundTee').value = teeIdx;
+  }
+  document.getElementById('editRoundModal').classList.add('active');
+}
+
+function closeEditRoundModal() {
+  document.getElementById('editRoundModal').classList.remove('active');
+  editingRoundId = null;
+}
+
+function onEditHolesChange() {
+  populateEditCourseSelect(parseInt(document.getElementById('editRoundHoles').value));
+  document.getElementById('editRoundTee').innerHTML = '<option value="">Select tee...</option>';
+}
+
+function populateEditCourseSelect(holesFilter) {
+  const sel = document.getElementById('editRoundCourse');
+  sel.innerHTML = '<option value="">Select course...</option>';
+  courses.filter(c => c.holes === holesFilter)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+}
+
+function populateEditTees() {
+  const courseId = document.getElementById('editRoundCourse').value;
+  const sel = document.getElementById('editRoundTee');
+  sel.innerHTML = '<option value="">Select tee...</option>';
+  if (!courseId) return;
+  const course = courses.find(c => c.id === courseId);
+  if (!course) return;
+  course.tees.forEach((t, i) => {
+    sel.innerHTML += `<option value="${i}">${t.name} (${t.gender}) — CR ${t.cr} / Slope ${t.slope}</option>`;
+  });
+}
+
+function saveEditedRound() {
+  if (!editingRoundId) return;
+  const r = rounds.find(x => x.id === editingRoundId);
+  if (!r) return;
+  const dateStr = document.getElementById('editRoundDate').value;
+  const dateObj = parseDateFI(dateStr);
+  if (!dateObj) return alert('Please enter a valid date (DD.MM.YYYY).');
+  const courseId = document.getElementById('editRoundCourse').value;
+  const teeIdx = parseInt(document.getElementById('editRoundTee').value);
+  const score = parseInt(document.getElementById('editRoundScore').value);
+  const pcc = parseInt(document.getElementById('editRoundPCC').value);
+  const official = document.getElementById('editRoundOfficial').checked;
+  const holes = parseInt(document.getElementById('editRoundHoles').value);
+  if (!courseId) return alert('Please select a course.');
+  if (isNaN(teeIdx)) return alert('Please select a tee.');
+  if (!score || score < 30 || score > 200) return alert('Please enter a valid score.');
+  const course = courses.find(c => c.id === courseId);
+  const tee = course.tees[teeIdx];
+  const differential = Math.round(((113 / tee.slope) * (score - tee.cr - pcc)) * 10) / 10;
+  // Apply changes
+  r.date = toISO(dateObj);
+  r.courseId = courseId; r.courseName = course.name;
+  r.teeName = tee.name; r.teeGender = tee.gender;
+  r.cr = tee.cr; r.slope = tee.slope;
+  r.par = course.par; r.holes = holes;
+  r.score = score; r.pcc = pcc; r.official = official;
+  r.differential = differential;
+  sortRounds();
+  calculateHandicap();
+  renderRoundViews();
+  saveData();
+  closeEditRoundModal();
 }
 
 function showTeeInfo() {
@@ -1051,8 +1268,8 @@ function addRound() {
 
   rounds.push(round);
   sortRounds();
-  calculateHandicap();  // must run BEFORE renderRounds so counting flags are set
-  renderRounds();
+  calculateHandicap();  // must run BEFORE renderRoundViews so counting flags are set
+  renderRoundViews();
   saveData();
 
   document.getElementById('roundScore').value = '';
@@ -1062,99 +1279,163 @@ function addRound() {
 }
 
 // ========== HANDICAP CALCULATION ==========
+function getWHSParams(n) {
+  let useCount = 0, adjustment = 0;
+  if (n === 3)       { useCount = 1; adjustment = -2.0; }
+  else if (n === 4)  { useCount = 1; adjustment = -1.0; }
+  else if (n === 5)  { useCount = 1; }
+  else if (n === 6)  { useCount = 2; adjustment = -1.0; }
+  else if (n <= 8)   { useCount = 2; }
+  else if (n <= 11)  { useCount = 3; }
+  else if (n <= 14)  { useCount = 4; }
+  else if (n <= 16)  { useCount = 5; }
+  else if (n <= 18)  { useCount = 6; }
+  else if (n === 19) { useCount = 7; }
+  else               { useCount = 8; }
+  return { useCount, adjustment };
+}
+
 function calculateHandicap() {
-  const officialRounds = rounds.filter(r => r.official);
   const el = {
     index: document.getElementById('hcpIndex'),
     detail: document.getElementById('hcpDetail'),
     rounds: document.getElementById('statRounds'),
     avg: document.getElementById('statAvg'),
-    low: document.getElementById('statLow')
+    low: document.getElementById('statLow'),
+    unofficial: document.getElementById('unofficialHcp')
   };
 
+  // Reset all counting flags
+  rounds.forEach(r => { r.counting = false; r.unofficialCounting = false; });
+
+  // === OFFICIAL HCP ===
+  const officialRounds = rounds.filter(r => r.official);
   el.rounds.textContent = officialRounds.length;
-  rounds.forEach(r => r.counting = false);
 
   if (officialRounds.length < 3) {
     el.index.textContent = 'N/A';
     el.detail.textContent = `Need at least 3 official rounds (have ${officialRounds.length})`;
     el.avg.textContent = '-'; el.low.textContent = '-';
-    return;
+  } else {
+    const recent20 = officialRounds.slice(0, 20);
+    const diffs = recent20.map(r => r.differential);
+    const n = diffs.length;
+    const { useCount, adjustment } = getWHSParams(n);
+    const sorted = [...diffs].sort((a, b) => a - b);
+    const avg = sorted.slice(0, useCount).reduce((s, d) => s + d, 0) / useCount;
+    const handicapIndex = Math.min(Math.round((avg + adjustment) * 10) / 10, 54.0);
+
+    // Mark official counting rounds
+    const byDiff = [...recent20].sort((a, b) => a.differential - b.differential);
+    let marked = 0;
+    for (const r of byDiff) { if (marked < useCount) { r.counting = true; marked++; } }
+
+    el.index.textContent = handicapIndex.toFixed(1);
+    el.detail.textContent = `Best ${useCount} of ${n} differentials${adjustment !== 0 ? ` (adj. ${adjustment > 0 ? '+' : ''}${adjustment})` : ''}`;
+    el.avg.textContent = avg.toFixed(1);
+    el.low.textContent = Math.min(...diffs).toFixed(1);
   }
 
-  const recent20 = officialRounds.slice(0, 20);
-  const diffs = recent20.map(r => r.differential);
-  const n = diffs.length;
+  // === UNOFFICIAL HCP (all rounds including practice) ===
+  const allRecent20 = rounds.slice(0, 20); // already sorted newest-first
+  const allN = allRecent20.length;
 
-  // WHS table
-  let useCount, adjustment = 0;
-  if (n === 3) { useCount = 1; adjustment = -2.0; }
-  else if (n === 4) { useCount = 1; adjustment = -1.0; }
-  else if (n === 5) { useCount = 1; }
-  else if (n === 6) { useCount = 2; adjustment = -1.0; }
-  else if (n <= 8) useCount = 2;
-  else if (n <= 11) useCount = 3;
-  else if (n <= 14) useCount = 4;
-  else if (n <= 16) useCount = 5;
-  else if (n <= 18) useCount = 6;
-  else if (n === 19) useCount = 7;
-  else useCount = 8;
+  if (allN < 3) {
+    if (el.unofficial) el.unofficial.textContent = '(Unofficial: N/A — all rounds)';
+  } else {
+    const allDiffs = allRecent20.map(r => r.differential);
+    const { useCount: uc, adjustment: adj } = getWHSParams(allN);
+    const allSorted = [...allDiffs].sort((a, b) => a - b);
+    const allAvg = allSorted.slice(0, uc).reduce((s, d) => s + d, 0) / uc;
+    const unofficialIndex = Math.min(Math.round((allAvg + adj) * 10) / 10, 54.0);
 
-  const sorted = [...diffs].sort((a, b) => a - b);
-  const bestDiffs = sorted.slice(0, useCount);
-  const avg = bestDiffs.reduce((s, d) => s + d, 0) / useCount;
+    // Mark unofficial counting rounds
+    const allByDiff = [...allRecent20].sort((a, b) => a.differential - b.differential);
+    let allMarked = 0;
+    for (const r of allByDiff) { if (allMarked < uc) { r.unofficialCounting = true; allMarked++; } }
 
-  let handicapIndex = avg + adjustment;
-  handicapIndex = Math.round(handicapIndex * 10) / 10;
-  if (handicapIndex > 54.0) handicapIndex = 54.0;
-
-  // Mark counting
-  const sortedRecent = [...recent20].sort((a, b) => a.differential - b.differential);
-  let countMarked = 0;
-  for (const r of sortedRecent) {
-    if (countMarked < useCount) { r.counting = true; countMarked++; }
+    if (el.unofficial) el.unofficial.textContent = `(Unofficial: ${unofficialIndex.toFixed(1)} — all rounds incl. practice)`;
   }
-
-  el.index.textContent = handicapIndex.toFixed(1);
-  el.detail.textContent = `Best ${useCount} of ${n} differentials${adjustment !== 0 ? ` (adj. ${adjustment > 0 ? '+' : ''}${adjustment})` : ''}`;
-  el.avg.textContent = avg.toFixed(1);
-  el.low.textContent = Math.min(...diffs).toFixed(1);
 }
 
 // ========== RENDER ROUNDS ==========
-function renderRounds() {
-  const container = document.getElementById('roundsList');
-  const empty = document.getElementById('noRounds');
+function roundItemHTML(r, num, countingFlag, showPracticeBadge) {
+  const displayDate = formatRoundDate(r.date);
+  let rowClass;
+  if (countingFlag) rowClass = 'is-counting';
+  else if (r.official) rowClass = 'is-official';
+  else rowClass = 'practice';
+  // Store ID in data attribute — avoids any JS string escaping issues in onclick
+  return `
+  <div class="round-item ${rowClass}" data-roundid="${r.id}">
+    <div class="round-num-badge">${num}</div>
+    <div class="round-toggle" title="${r.official ? 'Official — uncheck to exclude from HCP' : 'Practice — check to mark as official'}">
+      <input type="checkbox" ${r.official ? 'checked' : ''} onchange="toggleOfficialEl(this)"/>
+    </div>
+    <div class="round-num">${r.score}</div>
+    <div class="round-info">
+      <div class="course-name">${r.courseName}</div>
+      <div class="round-details">
+        ${displayDate} &nbsp;|&nbsp; ${r.teeName} (${r.teeGender})
+        &nbsp;|&nbsp; CR ${r.cr} / Slope ${r.slope}
+        ${r.pcc !== 0 ? ' | PCC ' + (r.pcc > 0 ? '+' : '') + r.pcc : ''}
+        &nbsp;
+        ${r.holes === 9 ? '<span class="badge badge-9h">9H</span> ' : ''}
+        ${countingFlag ? '<span class="badge badge-counting">Counting</span>' : ''}
+        ${showPracticeBadge && !r.official ? '<span class="badge badge-practice">Practice</span>' : ''}
+      </div>
+    </div>
+    <div class="round-diff">
+      <div class="diff-val ${countingFlag ? 'counting' : 'not-counting'}">${r.differential.toFixed(1)}</div>
+      <div class="diff-lbl">Diff.</div>
+    </div>
+    <div class="round-actions">
+      <button class="edit-btn" onclick="openEditRoundModal(this)" title="Edit round">✎</button>
+      <button class="del-btn" onclick="deleteRoundEl(this)" title="Delete round">&times;</button>
+    </div>
+  </div>`;
+}
+
+function separatorHTML(label) {
+  return `<div class="rounds-separator">${label}</div>`;
+}
+
+function renderHCPRounds() {
+  const container = document.getElementById('hcpRoundsList');
+  const empty = document.getElementById('noHcpRounds');
+  const officialRounds = rounds.filter(r => r.official);
+  if (officialRounds.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  let html = '';
+  officialRounds.forEach((r, idx) => {
+    const num = idx + 1;
+    html += roundItemHTML(r, num, r.counting, false);
+    if (num === 20 && officialRounds.length > 20) {
+      html += separatorHTML('Older rounds — outside HCP window');
+    }
+  });
+  container.innerHTML = html;
+}
+
+function renderAllRounds() {
+  const container = document.getElementById('allRoundsList');
+  const empty = document.getElementById('noAllRounds');
   if (rounds.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
+  let html = '';
+  rounds.forEach((r, idx) => {
+    const num = idx + 1;
+    html += roundItemHTML(r, num, r.unofficialCounting, true);
+    if (num === 20 && rounds.length > 20) {
+      html += separatorHTML('Older rounds — outside unofficial HCP window');
+    }
+  });
+  container.innerHTML = html;
+}
 
-  container.innerHTML = rounds.map((r, idx) => {
-    const displayDate = formatRoundDate(r.date);
-    const rowClass = r.counting ? 'is-counting' : (r.official ? 'is-official' : 'practice');
-    return `
-    <div class="round-item ${rowClass}">
-      <div class="round-toggle" title="${r.official ? 'Included in HCP — uncheck to exclude' : 'Not included — check to include in HCP'}">
-        <input type="checkbox" ${r.official ? 'checked' : ''} onchange="toggleOfficial('${r.id}', this.checked)"/>
-      </div>
-      <div class="round-num">${r.score}</div>
-      <div class="round-info">
-        <div class="course-name">${r.courseName}</div>
-        <div class="round-details">
-          ${displayDate} &nbsp;|&nbsp; ${r.teeName} (${r.teeGender})
-          &nbsp;|&nbsp; CR ${r.cr} / Slope ${r.slope}
-          ${r.pcc !== 0 ? ' | PCC ' + (r.pcc > 0 ? '+' : '') + r.pcc : ''}
-          &nbsp;
-          ${r.holes === 9 ? '<span class="badge badge-9h">9H</span> ' : ''}
-          ${r.counting ? '<span class="badge badge-counting">Counting</span>' : ''}
-        </div>
-      </div>
-      <div class="round-diff">
-        <div class="diff-val ${r.counting ? 'counting' : 'not-counting'}">${r.differential.toFixed(1)}</div>
-        <div class="diff-lbl">Diff.</div>
-      </div>
-      <button class="del-btn" onclick="deleteRound('${r.id}')" title="Delete">&times;</button>
-    </div>`;
-  }).join('');
+function renderRoundViews() {
+  renderHCPRounds();
+  renderAllRounds();
 }
 
 function formatRoundDate(d) {
@@ -1164,20 +1445,52 @@ function formatRoundDate(d) {
   return d;
 }
 
-function toggleOfficial(id, checked) {
+// ========== CONFIRM MODAL ==========
+function showConfirm(title, message, yesLabel, onYes) {
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalMsg').textContent = message;
+  document.getElementById('confirmModalYes').textContent = yesLabel || 'Yes, delete';
+  confirmCallback = onYes;
+  document.getElementById('confirmModal').classList.add('active');
+}
+function closeConfirmModal() {
+  document.getElementById('confirmModal').classList.remove('active');
+  confirmCallback = null;
+}
+function confirmModalYes() {
+  closeConfirmModal();
+  if (confirmCallback) confirmCallback();
+}
+
+// ========== ROUND ACTIONS ==========
+function getRoundId(el) {
+  return el.closest('[data-roundid]').dataset.roundid;
+}
+
+function toggleOfficialEl(checkbox) {
+  const id = getRoundId(checkbox);
   const r = rounds.find(r => r.id === id);
-  if (r) { r.official = checked; }
+  if (r) { r.official = checkbox.checked; }
   calculateHandicap();
-  renderRounds();
+  renderRoundViews();
   saveData();
 }
 
-function deleteRound(id) {
-  if (!confirm('Delete this round?')) return;
-  rounds = rounds.filter(r => r.id !== id);
-  calculateHandicap();
-  renderRounds();
-  saveData();
+function deleteRoundEl(btn) {
+  const id = getRoundId(btn);
+  const r = rounds.find(x => x.id === id);
+  if (!r) return;
+  showConfirm(
+    'Delete Round',
+    `${r.courseName}\n${formatRoundDate(r.date)}  |  Score: ${r.score}  |  Diff: ${r.differential.toFixed(1)}`,
+    'Yes, delete',
+    () => {
+      rounds = rounds.filter(x => x.id !== id);
+      calculateHandicap();
+      renderRoundViews();
+      saveData();
+    }
+  );
 }
 
 // ========== RENDER COURSES ==========
@@ -1207,9 +1520,11 @@ function renderCourses() {
 }
 
 function deleteCourse(id) {
-  if (!confirm('Delete this course?')) return;
-  courses = courses.filter(c => c.id !== id);
-  saveData(); renderCourses(); populateCourseSelect();
+  const c = courses.find(x => x.id === id);
+  showConfirm('Delete Course', `Delete "${c ? c.name : 'this course'}"? Rounds played here will keep their data.`, 'Yes, delete', () => {
+    courses = courses.filter(x => x.id !== id);
+    saveData(); renderCourses(); populateCourseSelect();
+  });
 }
 
 // ========== COURSE MODAL ==========
@@ -1297,9 +1612,9 @@ function saveCourse() {
 
 
 function clearAllRounds() {
-  if (!confirm('Delete ALL rounds? This cannot be undone.')) return;
-  if (!confirm('Are you sure?')) return;
-  rounds = []; saveData(); renderRounds(); calculateHandicap();
+  showConfirm('Clear All Rounds', 'Delete ALL rounds? This cannot be undone.', 'Yes, clear all', () => {
+    rounds = []; saveData(); renderRoundViews(); calculateHandicap();
+  });
 }
 
 // ========== START ==========
