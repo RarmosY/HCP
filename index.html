@@ -52,10 +52,11 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
 .tabs {
   display: flex; gap: 4px; margin-bottom: 16px;
   background: var(--surface); border-radius: var(--radius); padding: 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
 }
 .tabs button {
-  flex: 1; padding: 10px; border: none; background: transparent;
-  color: var(--text2); font-size: 13px; font-weight: 600;
+  flex: 1; min-width: 72px; padding: 10px 6px; border: none; background: transparent;
+  color: var(--text2); font-size: 12px; font-weight: 600; white-space: nowrap;
   cursor: pointer; border-radius: 8px; transition: all 0.2s;
 }
 .tabs button.active { background: var(--accent); color: #000; }
@@ -239,6 +240,51 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
 }
 .sync-bar .sync-actions button:hover { background: var(--border); }
 
+.round-hcp-change { text-align: center; min-width: 64px; flex-shrink: 0; }
+.round-hcp-change .hcp-change-val { font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 3px; }
+.round-hcp-change .hcp-change-lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.arrow-better { color: var(--accent); }
+.arrow-worse  { color: var(--red); }
+.arrow-same   { color: var(--text2); }
+
+.chart-controls {
+  display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; align-items: center;
+}
+.chart-controls label {
+  display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;
+}
+.chart-controls input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.chart-time-controls {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center;
+}
+.chart-time-controls span { font-size: 11px; color: var(--text2); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.chart-time-controls label {
+  display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2);
+  transition: all 0.15s;
+}
+.chart-time-controls input[type="radio"] { display: none; }
+.chart-time-controls label:has(input:checked) { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+.chart-custom-range {
+  display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 14px; font-size: 12px; color: var(--text2);
+}
+.chart-custom-range.visible { display: flex; }
+.chart-custom-range input[type="text"] {
+  padding: 5px 9px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 12px; width: 100px;
+}
+.chart-custom-range input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap canvas { width: 100% !important; display: block; border-radius: 8px; }
+#chartTooltip {
+  display: none; position: absolute; background: rgba(15,25,35,0.92);
+  border: 1px solid var(--accent); border-radius: 8px;
+  padding: 8px 12px; pointer-events: none; z-index: 10;
+  font-size: 13px; line-height: 1.6; min-width: 120px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
 .round-num-badge {
   font-size: 12px; font-weight: 700; color: var(--text2);
   min-width: 24px; text-align: right; flex-shrink: 0;
@@ -298,6 +344,7 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
     <button class="active" onclick="switchTab('add')">Add Round</button>
     <button onclick="switchTab('hcp-rounds')">HCP Rounds</button>
     <button onclick="switchTab('all-rounds')">All Rounds</button>
+    <button onclick="switchTab('chart')">HCP Chart</button>
     <button onclick="switchTab('courses')">Courses</button>
     <button onclick="switchTab('settings')">Settings</button>
   </div>
@@ -396,6 +443,45 @@ header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
     </div>
     <div id="allRoundsList"></div>
     <div id="noAllRounds" class="info-box">No rounds recorded yet.</div>
+  </div>
+
+  <!-- Tab: HCP Chart -->
+  <div id="tab-chart" class="tab-content">
+    <div class="card">
+      <h3>HCP Development Over Time</h3>
+      <div class="chart-controls">
+        <label>
+          <input type="checkbox" id="chartShowOfficial" checked onchange="renderHCPChart()"/>
+          <span style="color:var(--accent);">■</span> Official HCP
+        </label>
+        <label>
+          <input type="checkbox" id="chartShowUnofficial" checked onchange="renderHCPChart()"/>
+          <span style="color:var(--orange);">■</span> Unofficial HCP (all rounds)
+        </label>
+      </div>
+      <div class="chart-time-controls">
+        <span>Time:</span>
+        <label><input type="radio" name="chartTime" value="1y" onchange="onChartTimeChange()"/> 1 Year</label>
+        <label><input type="radio" name="chartTime" value="2y" onchange="onChartTimeChange()"/> 2 Years</label>
+        <label><input type="radio" name="chartTime" value="ytd" onchange="onChartTimeChange()"/> Current Year</label>
+        <label><input type="radio" name="chartTime" value="ltm" onchange="onChartTimeChange()"/> LTM</label>
+        <label><input type="radio" name="chartTime" value="max" onchange="onChartTimeChange()" checked/> Max</label>
+        <label><input type="radio" name="chartTime" value="custom" onchange="onChartTimeChange()"/> Custom</label>
+      </div>
+      <div class="chart-custom-range" id="chartCustomRange">
+        <span>From:</span>
+        <input type="text" id="chartCustomFrom" placeholder="DD.MM.YYYY" oninput="renderHCPChart()"/>
+        <span>To:</span>
+        <input type="text" id="chartCustomTo" placeholder="DD.MM.YYYY" oninput="renderHCPChart()"/>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="hcpChart" height="300"></canvas>
+        <div id="chartTooltip"></div>
+      </div>
+    </div>
+    <div class="info-box">
+      Each point represents the HCP after that round was played. Lower is better. Dashed line = unofficial HCP using all rounds including practice.
+    </div>
   </div>
 
   <!-- Tab: Courses -->
@@ -690,6 +776,13 @@ async function init() {
   calculateHandicap();
   setupDatePicker();
   updateSyncUI();
+
+  // Restore last active tab
+  try {
+    const savedTab = localStorage.getItem('whs_active_tab') || 'add';
+    const validTabs = ['add', 'hcp-rounds', 'all-rounds', 'chart', 'courses', 'settings'];
+    switchTab(validTabs.includes(savedTab) ? savedTab : 'add');
+  } catch(e) { switchTab('add'); }
 
   // If cloud sync is configured, fetch latest data
   if (ghToken && ghGistId) {
@@ -1083,24 +1176,37 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
-  const tabs = ['add', 'hcp-rounds', 'all-rounds', 'courses', 'settings'];
-  document.querySelectorAll('.tabs button')[tabs.indexOf(tab)].classList.add('active');
+  const tabs = ['add', 'hcp-rounds', 'all-rounds', 'chart', 'courses', 'settings'];
+  const idx = tabs.indexOf(tab);
+  if (idx >= 0) document.querySelectorAll('.tabs button')[idx].classList.add('active');
+  try { localStorage.setItem('whs_active_tab', tab); } catch(e) {}
+  if (tab === 'chart') setTimeout(renderHCPChart, 0);
 }
 
 // ========== COURSE SELECT ==========
 function populateCourseSelect() {
   const sel = document.getElementById('roundCourse');
-  const holesFilter = parseInt(document.getElementById('roundHoles').value);
   sel.innerHTML = '<option value="">Select course...</option>';
-  courses.filter(c => c.holes === holesFilter)
+  [...courses]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+    .forEach(c => {
+      const holesLabel = c.holes === 9 ? ' (9H)' : '';
+      sel.innerHTML += `<option value="${c.id}">${c.name}${holesLabel}</option>`;
+    });
 }
 
 function onHolesChange() {
-  populateCourseSelect();
-  document.getElementById('roundTee').innerHTML = '<option value="">Select tee...</option>';
-  document.getElementById('teeInfo').style.display = 'none';
+  // Holes changed manually — reset tee only if selected course doesn't match
+  const courseId = document.getElementById('roundCourse').value;
+  const holes = parseInt(document.getElementById('roundHoles').value);
+  if (courseId) {
+    const c = courses.find(x => x.id === courseId);
+    if (c && c.holes !== holes) {
+      document.getElementById('roundCourse').value = '';
+      document.getElementById('roundTee').innerHTML = '<option value="">Select tee...</option>';
+      document.getElementById('teeInfo').style.display = 'none';
+    }
+  }
 }
 
 function getDefaultTeeIndex(tees) {
@@ -1126,6 +1232,8 @@ function populateTees() {
   if (!courseId) return;
   const course = courses.find(c => c.id === courseId);
   if (!course) return;
+  // Auto-sync the holes selector to match this course
+  document.getElementById('roundHoles').value = course.holes;
   course.tees.forEach((t, i) => {
     sel.innerHTML += `<option value="${i}">${t.name} (${t.gender}) — CR ${t.cr} / Slope ${t.slope}</option>`;
   });
@@ -1170,9 +1278,12 @@ function onEditHolesChange() {
 function populateEditCourseSelect(holesFilter) {
   const sel = document.getElementById('editRoundCourse');
   sel.innerHTML = '<option value="">Select course...</option>';
-  courses.filter(c => c.holes === holesFilter)
+  [...courses]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+    .forEach(c => {
+      const holesLabel = c.holes === 9 ? ' (9H)' : '';
+      sel.innerHTML += `<option value="${c.id}">${c.name}${holesLabel}</option>`;
+    });
 }
 
 function populateEditTees() {
@@ -1182,6 +1293,8 @@ function populateEditTees() {
   if (!courseId) return;
   const course = courses.find(c => c.id === courseId);
   if (!course) return;
+  // Auto-sync holes to match selected course
+  document.getElementById('editRoundHoles').value = course.holes;
   course.tees.forEach((t, i) => {
     sel.innerHTML += `<option value="${i}">${t.name} (${t.gender}) — CR ${t.cr} / Slope ${t.slope}</option>`;
   });
@@ -1358,14 +1471,73 @@ function calculateHandicap() {
   }
 }
 
+// ========== HCP HISTORY ==========
+function sortedOldestFirst(arr) {
+  return [...arr].sort((a, b) => {
+    const da = a.date.replace(/[ab]$/, ''), db = b.date.replace(/[ab]$/, '');
+    return da !== db ? da.localeCompare(db) : (a.id < b.id ? -1 : 1);
+  });
+}
+
+function computeHCPForSubset(oldestFirstArr) {
+  const recent20 = oldestFirstArr.slice(-20);
+  const n = recent20.length;
+  if (n < 3) return null;
+  const { useCount, adjustment } = getWHSParams(n);
+  const diffs = [...recent20.map(r => r.differential)].sort((a, b) => a - b);
+  const avg = diffs.slice(0, useCount).reduce((s, d) => s + d, 0) / useCount;
+  return Math.min(Math.round((avg + adjustment) * 10) / 10, 54.0);
+}
+
+function computeHCPHistory(roundsList) {
+  // Returns Map<roundId, {oldHcp, newHcp}> — sorted oldest→newest
+  const sorted = sortedOldestFirst(roundsList);
+  const result = new Map();
+  for (let i = 0; i < sorted.length; i++) {
+    result.set(sorted[i].id, {
+      oldHcp: computeHCPForSubset(sorted.slice(0, i)),
+      newHcp: computeHCPForSubset(sorted.slice(0, i + 1))
+    });
+  }
+  return result;
+}
+
+function buildHCPSeries(roundsList) {
+  // Returns [{date: Date, hcp: number}] for chart, only points where HCP is computable
+  const sorted = sortedOldestFirst(roundsList);
+  const series = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const hcp = computeHCPForSubset(sorted.slice(0, i + 1));
+    if (hcp !== null) {
+      series.push({ date: new Date(sorted[i].date.replace(/[ab]$/, '')), hcp });
+    }
+  }
+  return series;
+}
+
 // ========== RENDER ROUNDS ==========
-function roundItemHTML(r, num, countingFlag, showPracticeBadge) {
+function hcpDeltaHTML(hcpChange) {
+  if (!hcpChange) return '<div class="round-hcp-change"></div>';
+  const { oldHcp, newHcp } = hcpChange;
+  const oldStr = oldHcp !== null ? oldHcp.toFixed(1) : '—';
+  const newStr = newHcp !== null ? newHcp.toFixed(1) : '—';
+  let arrowClass = 'arrow-same', arrow = '→';
+  if (oldHcp !== null && newHcp !== null) {
+    if (newHcp < oldHcp)      { arrowClass = 'arrow-better'; arrow = '↓'; }
+    else if (newHcp > oldHcp) { arrowClass = 'arrow-worse';  arrow = '↑'; }
+  }
+  return `<div class="round-hcp-change">
+    <div class="hcp-change-val">${oldStr} <span class="${arrowClass}">${arrow}</span> ${newStr}</div>
+    <div class="hcp-change-lbl">HCP</div>
+  </div>`;
+}
+
+function roundItemHTML(r, num, countingFlag, showPracticeBadge, hcpChange) {
   const displayDate = formatRoundDate(r.date);
   let rowClass;
   if (countingFlag) rowClass = 'is-counting';
   else if (r.official) rowClass = 'is-official';
   else rowClass = 'practice';
-  // Store ID in data attribute — avoids any JS string escaping issues in onclick
   return `
   <div class="round-item ${rowClass}" data-roundid="${r.id}">
     <div class="round-num-badge">${num}</div>
@@ -1389,6 +1561,7 @@ function roundItemHTML(r, num, countingFlag, showPracticeBadge) {
       <div class="diff-val ${countingFlag ? 'counting' : 'not-counting'}">${r.differential.toFixed(1)}</div>
       <div class="diff-lbl">Diff.</div>
     </div>
+    ${hcpDeltaHTML(hcpChange)}
     <div class="round-actions">
       <button class="edit-btn" onclick="openEditRoundModal(this)" title="Edit round">✎</button>
       <button class="del-btn" onclick="deleteRoundEl(this)" title="Delete round">&times;</button>
@@ -1406,10 +1579,11 @@ function renderHCPRounds() {
   const officialRounds = rounds.filter(r => r.official);
   if (officialRounds.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
+  const hcpHistory = computeHCPHistory(officialRounds);
   let html = '';
   officialRounds.forEach((r, idx) => {
     const num = idx + 1;
-    html += roundItemHTML(r, num, r.counting, false);
+    html += roundItemHTML(r, num, r.counting, false, hcpHistory.get(r.id));
     if (num === 20 && officialRounds.length > 20) {
       html += separatorHTML('Older rounds — outside HCP window');
     }
@@ -1422,10 +1596,11 @@ function renderAllRounds() {
   const empty = document.getElementById('noAllRounds');
   if (rounds.length === 0) { container.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
+  const hcpHistory = computeHCPHistory(rounds);
   let html = '';
   rounds.forEach((r, idx) => {
     const num = idx + 1;
-    html += roundItemHTML(r, num, r.unofficialCounting, true);
+    html += roundItemHTML(r, num, r.unofficialCounting, true, hcpHistory.get(r.id));
     if (num === 20 && rounds.length > 20) {
       html += separatorHTML('Older rounds — outside unofficial HCP window');
     }
@@ -1436,6 +1611,243 @@ function renderAllRounds() {
 function renderRoundViews() {
   renderHCPRounds();
   renderAllRounds();
+  if (document.getElementById('tab-chart').classList.contains('active')) renderHCPChart();
+}
+
+// ========== HCP CHART ==========
+let chartScaleParams = null;  // for hover tooltip
+
+function onChartTimeChange() {
+  const sel = document.querySelector('input[name="chartTime"]:checked');
+  const customRow = document.getElementById('chartCustomRange');
+  if (sel && sel.value === 'custom') {
+    customRow.classList.add('visible');
+  } else {
+    customRow.classList.remove('visible');
+  }
+  renderHCPChart();
+}
+
+function getChartStartTime() {
+  const sel = document.querySelector('input[name="chartTime"]:checked');
+  const val = sel ? sel.value : 'max';
+  const now = new Date();
+  if (val === '1y')  return new Date(now.getFullYear()-1, now.getMonth(), now.getDate()).getTime();
+  if (val === '2y')  return new Date(now.getFullYear()-2, now.getMonth(), now.getDate()).getTime();
+  if (val === 'ytd') return new Date(now.getFullYear(), 0, 1).getTime();
+  if (val === 'ltm') return new Date(now.getFullYear(), now.getMonth()-12, now.getDate()).getTime();
+  if (val === 'custom') {
+    const fromVal = (document.getElementById('chartCustomFrom') || {}).value || '';
+    const d = parseDateFI(fromVal);
+    return d ? d.getTime() : null;
+  }
+  return null; // max
+}
+
+function getChartEndTime() {
+  const sel = document.querySelector('input[name="chartTime"]:checked');
+  if (sel && sel.value === 'custom') {
+    const toVal = (document.getElementById('chartCustomTo') || {}).value || '';
+    const d = parseDateFI(toVal);
+    // Set to end of that day
+    if (d) { d.setHours(23, 59, 59, 999); return d.getTime(); }
+  }
+  return null; // no end cap
+}
+
+function renderHCPChart() {
+  const canvas = document.getElementById('hcpChart');
+  if (!canvas) return;
+  const container = canvas.parentElement;
+  const W = container.clientWidth || 600;
+  const H = 300;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const showOff   = document.getElementById('chartShowOfficial').checked;
+  const showUnoff = document.getElementById('chartShowUnofficial').checked;
+
+  // Build full series, then filter by time horizon
+  const startTime = getChartStartTime();
+  const endTime   = getChartEndTime();
+  const filterSeries = s => s.filter(pt => {
+    const t = pt.date.getTime();
+    if (startTime && t < startTime) return false;
+    if (endTime   && t > endTime)   return false;
+    return true;
+  });
+
+  const fullOffSeries   = showOff   ? buildHCPSeries(rounds.filter(r => r.official)) : [];
+  const fullUnoffSeries = showUnoff ? buildHCPSeries(rounds) : [];
+  const offSeries   = filterSeries(fullOffSeries);
+  const unoffSeries = filterSeries(fullUnoffSeries);
+  const allPts = [...offSeries, ...unoffSeries];
+
+  // Background
+  ctx.fillStyle = '#1a2634'; ctx.fillRect(0, 0, W, H);
+
+  if (allPts.length === 0) {
+    ctx.fillStyle = '#95a5a6'; ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Not enough data — add more rounds to see the chart', W/2, H/2);
+    chartScaleParams = null;
+    return;
+  }
+
+  const ml = 46, mr = 16, mt = 28, mb = 46;
+  const cW = W - ml - mr, cH = H - mt - mb;
+
+  // Domain
+  let minT = Math.min(...allPts.map(d => d.date.getTime()));
+  let maxT = Math.max(...allPts.map(d => d.date.getTime()));
+  if (minT === maxT) { minT -= 30*864e5; maxT += 30*864e5; }
+  else { minT -= 10*864e5; maxT += 10*864e5; }
+  const allH = allPts.map(d => d.hcp);
+  let minH = Math.max(0, Math.floor(Math.min(...allH)) - 1);
+  let maxH = Math.ceil(Math.max(...allH)) + 1;
+
+  const sx = t => ml + (t - minT) / (maxT - minT) * cW;
+  const sy = h => mt + (1 - (h - minH) / (maxH - minH)) * cH;
+
+  // Store scale params for hover
+  chartScaleParams = { ml, mr, mt, mb, cW, cH, minT, maxT, minH, maxH, W, H, offSeries, unoffSeries };
+
+  // Y grid + labels
+  const hRange = maxH - minH;
+  const hStep = hRange <= 5 ? 1 : hRange <= 15 ? 2 : 5;
+  ctx.textAlign = 'right'; ctx.font = '11px sans-serif';
+  for (let h = Math.ceil(minH); h <= maxH; h += hStep) {
+    const y = sy(h);
+    ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(ml + cW, y); ctx.stroke();
+    ctx.fillStyle = '#95a5a6'; ctx.fillText(h.toFixed(0), ml - 5, y + 4);
+  }
+
+  // X axis labels (month ticks)
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const spanMonths = (maxT - minT) / 30 / 864e5;
+  const step = spanMonths <= 14 ? 1 : spanMonths <= 28 ? 2 : 3;
+  const d0 = new Date(minT); d0.setDate(1);
+  ctx.textAlign = 'center'; ctx.font = '11px sans-serif'; ctx.fillStyle = '#95a5a6';
+  for (let d = new Date(d0); d.getTime() <= maxT; d.setMonth(d.getMonth() + step)) {
+    const x = sx(d.getTime());
+    if (x < ml || x > ml + cW) continue;
+    ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, mt + cH); ctx.lineTo(x, mt + cH + 4); ctx.stroke();
+    ctx.fillText(months[d.getMonth()] + ' \'' + String(d.getFullYear()).slice(2), x, mt + cH + 16);
+  }
+
+  // Axes
+  ctx.strokeStyle = '#3d5166'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, mt+cH); ctx.lineTo(ml+cW, mt+cH); ctx.stroke();
+
+  // Draw a series
+  function drawLine(series, color, dashed) {
+    if (series.length < 1) return;
+    ctx.save();
+    if (dashed) ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    series.forEach((pt, i) => {
+      const x = sx(pt.date.getTime()), y = sy(pt.hcp);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    series.forEach(pt => {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(sx(pt.date.getTime()), sy(pt.hcp), 4, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  if (showUnoff) drawLine(unoffSeries, '#f39c12', true);
+  if (showOff)   drawLine(offSeries,   '#2ecc71', false);
+
+  // Legend
+  ctx.textAlign = 'left'; ctx.font = '12px sans-serif';
+  let lx = ml + 8, ly = mt + 16;
+  function legendItem(color, label, dashed) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.save(); if (dashed) ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(lx, ly-4); ctx.lineTo(lx+18, ly-4); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(lx+9, ly-4, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ecf0f1'; ctx.fillText(label, lx+24, ly);
+    lx += ctx.measureText(label).width + 48;
+  }
+  if (showOff)   legendItem('#2ecc71', 'Official HCP', false);
+  if (showUnoff) legendItem('#f39c12', 'Unofficial HCP', true);
+
+  setupChartHover();
+}
+
+let _chartHoverSetup = false;
+function setupChartHover() {
+  const canvas = document.getElementById('hcpChart');
+  const tooltip = document.getElementById('chartTooltip');
+  if (!canvas || !tooltip || _chartHoverSetup) return;
+  _chartHoverSetup = true;
+
+  canvas.addEventListener('mousemove', (e) => {
+    const p = chartScaleParams;
+    if (!p) { tooltip.style.display = 'none'; return; }
+
+    const rect = canvas.getBoundingClientRect();
+    // Scale mouse coords from CSS pixels to canvas pixels
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
+    // Only respond inside the plot area
+    if (mx < p.ml || mx > p.ml + p.cW || my < p.mt || my > p.mt + p.cH) {
+      tooltip.style.display = 'none'; return;
+    }
+
+    // Find closest point in all series
+    const allPts = [
+      ...p.offSeries.map(pt => ({...pt, series: 'Official HCP', color: '#2ecc71'})),
+      ...p.unoffSeries.map(pt => ({...pt, series: 'Unofficial HCP', color: '#f39c12'}))
+    ];
+    if (allPts.length === 0) { tooltip.style.display = 'none'; return; }
+
+    const sx = t => p.ml + (t - p.minT) / (p.maxT - p.minT) * p.cW;
+    const sy = h => p.mt + (1 - (h - p.minH) / (p.maxH - p.minH)) * p.cH;
+
+    let closest = null, minDist = Infinity;
+    for (const pt of allPts) {
+      const px = sx(pt.date.getTime()), py = sy(pt.hcp);
+      const dist = Math.sqrt((mx-px)**2 + (my-py)**2);
+      if (dist < minDist) { minDist = dist; closest = pt; }
+    }
+
+    if (!closest || minDist > 40) { tooltip.style.display = 'none'; return; }
+
+    // Format date as DD.MM.YYYY
+    const d = closest.date;
+    const dateStr = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+    tooltip.innerHTML = `<span style="color:${closest.color};font-weight:700;">${closest.series}</span><br>
+      <span style="color:#ecf0f1;font-size:15px;font-weight:700;">${closest.hcp.toFixed(1)}</span><br>
+      <span style="color:#95a5a6;font-size:11px;">${dateStr}</span>`;
+
+    // Position tooltip — keep it inside the chart-wrap
+    const wrap = canvas.parentElement;
+    const wrapRect = wrap.getBoundingClientRect();
+    let tipLeft = e.clientX - wrapRect.left + 12;
+    let tipTop  = e.clientY - wrapRect.top  - 60;
+    // Clamp to wrap bounds
+    const tipW = 140, tipH = 72;
+    if (tipLeft + tipW > wrapRect.width)  tipLeft = e.clientX - wrapRect.left - tipW - 12;
+    if (tipTop < 0) tipTop = e.clientY - wrapRect.top + 12;
+    tooltip.style.left = tipLeft + 'px';
+    tooltip.style.top  = tipTop  + 'px';
+    tooltip.style.display = 'block';
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+  });
 }
 
 function formatRoundDate(d) {
