@@ -1519,15 +1519,12 @@ function buildHCPSeries(roundsList) {
 function hcpDeltaHTML(hcpChange) {
   if (!hcpChange) return '<div class="round-hcp-change"></div>';
   const { oldHcp, newHcp } = hcpChange;
-  const oldStr = oldHcp !== null ? oldHcp.toFixed(1) : '—';
-  const newStr = newHcp !== null ? newHcp.toFixed(1) : '—';
-  let arrowClass = 'arrow-same', arrow = '→';
-  if (oldHcp !== null && newHcp !== null) {
-    if (newHcp < oldHcp)      { arrowClass = 'arrow-better'; arrow = '↓'; }
-    else if (newHcp > oldHcp) { arrowClass = 'arrow-worse';  arrow = '↑'; }
-  }
+  if (newHcp === null) return '<div class="round-hcp-change"></div>';
+  let colorClass = 'arrow-same';
+  if (oldHcp !== null && newHcp < oldHcp) colorClass = 'arrow-better';
+  else if (oldHcp !== null && newHcp > oldHcp) colorClass = 'arrow-worse';
   return `<div class="round-hcp-change">
-    <div class="hcp-change-val">${oldStr} <span class="${arrowClass}">${arrow}</span> ${newStr}</div>
+    <div class="hcp-change-val ${colorClass}">${newHcp.toFixed(1)}</div>
     <div class="hcp-change-lbl">HCP</div>
   </div>`;
 }
